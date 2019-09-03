@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">OpenSafe</string>
+    <string name="title_activity_main">OpenSafe</string>
+    <string name="action_settings">Settings</string>
+    <string name="no_account_found">No db found</string>
+    <string name="filter_title_viewsafe">Safe Filter</string>
+
+    <string name="file_details">Name: %1$s\nPath: %2$s\nSize: %3$s\nMime Type: %4$s\nModified: %5$s</string>
+    <string name="layout_flip">Flip layout</string>
+</resources>

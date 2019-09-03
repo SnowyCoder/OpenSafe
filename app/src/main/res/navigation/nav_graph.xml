@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:id="@+id/nav_graph"
+        app:startDestination="@id/calculatorFragment">
+
+    <fragment
+            android:id="@+id/calculatorFragment"
+            android:name="xyz.upperlevel.snowy.opensafe.fragments.CalculatorFragment"
+            android:label="fragment_calculator"
+            tools:layout="@layout/fragment_calculator" >
+        <action
+                android:id="@+id/action_calculatorFragment_to_dbListFragment"
+                app:destination="@id/dbListFragment" />
+        <action
+                android:id="@+id/action_calculatorFragment_to_folderFragment"
+                app:destination="@id/folderFragment" />
+        <argument
+                android:name="dbreg"
+                app:argType="xyz.upperlevel.snowy.opensafe.db.DbRegistry" />
+    </fragment>
+    <fragment
+            android:id="@+id/dbListFragment"
+            android:name="xyz.upperlevel.snowy.opensafe.fragments.DbListFragment"
+            android:label="fragment_db_list"
+            tools:layout="@layout/fragment_db_list" >
+        <action
+                android:id="@+id/action_dbListFragment_to_addDbFragment"
+                app:destination="@id/addDbFragment" />
+        <action
+                android:id="@+id/action_dbListFragment_to_folderFragment"
+                app:destination="@id/folderFragment" />
+        <argument
+                android:name="dbreg"
+                app:argType="xyz.upperlevel.snowy.opensafe.db.DbRegistry" />
+    </fragment>
+    <fragment
+            android:id="@+id/addDbFragment"
+            android:name="xyz.upperlevel.snowy.opensafe.fragments.AddDbFragment"
+            android:label="fragment_add_db"
+            tools:layout="@layout/fragment_add_db" >
+        <action
+                android:id="@+id/action_addDbFragment_to_folderFragment"
+                app:destination="@id/folderFragment" />
+        <argument
+                android:name="dbreg"
+                app:argType="xyz.upperlevel.snowy.opensafe.db.DbRegistry" />
+    </fragment>
+    <fragment
+            android:id="@+id/folderFragment"
+            android:name="xyz.upperlevel.snowy.opensafe.fragments.FolderFragment"
+            android:label="fragment_folder"
+            tools:layout="@layout/fragment_folder" >
+        <argument
+                android:name="db"
+                app:argType="xyz.upperlevel.snowy.opensafe.db.Database" />
+        <action
+                android:id="@+id/action_folderFragment_to_imagePreviewFragment"
+                app:destination="@id/imagePreviewFragment" />
+    </fragment>
+    <fragment
+            android:id="@+id/imagePreviewFragment"
+            android:name="xyz.upperlevel.snowy.opensafe.fragments.ImagePreviewFragment"
+            android:label="fragment_image_preview"
+            tools:layout="@layout/fragment_image_preview" >
+        <argument
+                android:name="thumb"
+                app:argType="android.graphics.Bitmap"
+                app:nullable="true" />
+        <argument
+                android:name="db"
+                app:argType="xyz.upperlevel.snowy.opensafe.db.Database" />
+        <argument
+                android:name="path"
+                app:argType="string" />
+    </fragment>
+</navigation>
