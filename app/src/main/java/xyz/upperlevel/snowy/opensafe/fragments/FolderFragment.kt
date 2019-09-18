@@ -20,24 +20,27 @@ import android.util.TypedValue
 import android.view.*
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat.checkSelfPermission
 import androidx.core.content.FileProvider
 import androidx.core.content.PermissionChecker.PERMISSION_GRANTED
 import androidx.core.view.setPadding
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.leinardi.android.speeddial.SpeedDialActionItem
 import kotlinx.android.parcel.Parcelize
 import kotlinx.android.synthetic.main.fragment_folder.*
+import kotlinx.android.synthetic.main.folder_document_details.view.*
 import xyz.upperlevel.snowy.opensafe.R
 import xyz.upperlevel.snowy.opensafe.db.Database
 import xyz.upperlevel.snowy.opensafe.db.FileInfo
 import xyz.upperlevel.snowy.opensafe.db.FileSystem
 import xyz.upperlevel.snowy.opensafe.db.LoadData
 import xyz.upperlevel.snowy.opensafe.db.LoadData.LoadRequest
-import xyz.upperlevel.snowy.opensafe.util.AndroidUtil.ensurePermissions
 import xyz.upperlevel.snowy.opensafe.util.AndroidUtil.dp
+import xyz.upperlevel.snowy.opensafe.util.AndroidUtil.ensurePermissions
 import xyz.upperlevel.snowy.opensafe.util.AndroidUtil.guessMimeType
 import xyz.upperlevel.snowy.opensafe.util.AsyncUtil.async
 import xyz.upperlevel.snowy.opensafe.util.AsyncUtil.useLoadingBar
@@ -57,13 +60,14 @@ class FolderFragment : Fragment() {
 
     var currentPhotoPath: String? = null
     var currentExportFile: FileInfo? = null
-    var currentLayoutList = true
+    var currentLayoutList = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (savedInstanceState != null) {
             items = savedInstanceState.getParcelableArrayList("items")!!
             currentPhotoPath = savedInstanceState.getString("currentPhotoPath")
+            currentLayoutList = savedInstanceState.getBoolean("currentLayoutList", false)
         }
 
         db = arguments?.getParcelable("db")!!
@@ -83,20 +87,11 @@ class FolderFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         listAdapter = CustomListAdapter(activity!!)
-        listView.adapter = listAdapter
-        registerForContextMenu(listView)
+        listView.apply {
+            setHasFixedSize(true)
 
-        listView.setOnItemClickListener { adapterView, view, i, l ->
-            if (i < 0 || i >= items.size) {
-                return@setOnItemClickListener
-            }
-            val item = items[i]
-
-            when (item.type) {
-                CustomType.FOLDER -> Toast.makeText(context!!, "TODO: Open folder", Toast.LENGTH_LONG).show()// TODO
-                CustomType.IMAGE -> showImage(item)
-                CustomType.UNKNOWN -> Toast.makeText(context!!, "TODO: Open external", Toast.LENGTH_LONG).show()// TODO Intent.ACTION_VIEW
-            }
+            layoutManager = if (currentLayoutList) LinearLayoutManager(context!!) else GridLayoutManager(context!!, 2)
+            adapter = listAdapter
         }
 
         if (context!!.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) {
@@ -167,25 +162,15 @@ class FolderFragment : Fragment() {
     fun flipLayout() {
         currentLayoutList = !currentLayoutList
 
-        activity!!.invalidateOptionsMenu()
-    }
-
-    override fun onCreateContextMenu(
-        menu: ContextMenu,
-        v: View,
-        menuInfo: ContextMenu.ContextMenuInfo?
-    ) {
-        super.onCreateContextMenu(menu, v, menuInfo)
-
-        if (v == listView) {
-            val info = menuInfo!! as AdapterView.AdapterContextMenuInfo
-
-            menu.add(info.position, ENTRY_MENU_DETAILS, Menu.NONE, "Details")
-            menu.add(info.position, ENTRY_MENU_RENAME, Menu.NONE, "Rename")
-            menu.add(info.position, ENTRY_MENU_SHARE, Menu.NONE, "Share")
-            menu.add(info.position, ENTRY_MENU_EXPORT, Menu.NONE, "Export")
-            menu.add(info.position, ENTRY_MENU_DELETE, Menu.NONE, "Delete")
+        listView.layoutManager = if (currentLayoutList) {
+            LinearLayoutManager(context!!)
+        } else {
+            GridLayoutManager(context!!, 2)
         }
+
+        listView.adapter = listAdapter
+
+        activity!!.invalidateOptionsMenu()
     }
 
     override fun onContextItemSelected(item: MenuItem): Boolean {
@@ -211,6 +196,7 @@ class FolderFragment : Fragment() {
         super.onSaveInstanceState(outState)
         outState.putParcelableArrayList("items", items as ArrayList<out Parcelable>)
         currentPhotoPath?.also { outState.putString("currentPhotoPath", it) }
+        outState.putBoolean("currentLayoutList", currentLayoutList)
     }
 
     fun showImage(image: DirectoryEntry) {
@@ -354,7 +340,8 @@ class FolderFragment : Fragment() {
         val input = EditText(context!!)
         // Specify the type of input expected; this, for example, sets the input as a password, and will mask the text
         input.setText(info.name)
-        input.inputType = InputType.TYPE_CLASS_TEXT
+        input.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+
         builder.setView(input)
 
         // Set up the buttons
@@ -496,26 +483,92 @@ class FolderFragment : Fragment() {
         FOLDER, IMAGE, UNKNOWN
     }
 
-    inner class CustomListAdapter(val context: Context) : BaseAdapter() {
-        override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-            val resView: DocumentDetails = (convertView ?: DocumentDetails(context)) as DocumentDetails
-            val item = items[position]
-
-            resView.setContent(item.info.name, formatFileSize(context, item.info.length), item.ext, item.thumb, item.icon)
-
-            return resView
+    inner class CustomListAdapter(val context: Context) : RecyclerView.Adapter<ViewHolder>() {
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+            val view = if (currentLayoutList) {
+                DocumentDetails(context)
+            } else {
+                LayoutInflater.from(parent.context).inflate(R.layout.folder_document_details, parent, false)
+            }
+            return ViewHolder(view)
         }
 
-        override fun getItem(position: Int): Any {
-            return items[position]
+        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+            holder.updateItem(items[position])
         }
 
-        override fun getItemId(position: Int): Long {
-            return 0
+
+        override fun getItemCount(): Int = items.size
+    }
+
+    inner class ViewHolder(val view: View) : RecyclerView.ViewHolder(view),
+        View.OnClickListener, View.OnCreateContextMenuListener {
+        private var item: DirectoryEntry? = null
+
+        init {
+            view.setOnClickListener(this)
+            view.setOnCreateContextMenuListener(this)
         }
 
-        override fun getCount(): Int {
-            return items.size
+        fun updateItem(item: DirectoryEntry) {
+            this.item = item
+
+            if (currentLayoutList) {
+                (view as DocumentDetails).setContent(
+                    item.info.name,
+                    formatFileSize(context, item.info.length),
+                    item.ext,
+                    item.thumb,
+                    item.icon
+                )
+            } else {
+                when {
+                    item.thumb != null -> view.filePreview.setImageBitmap(item.thumb)
+                    item.icon != null -> view.filePreview.setImageResource(item.icon)
+                    else -> /* TODO? */ view.filePreview.setImageResource(R.drawable.ic_file_gray)
+                }
+                view.fileSize.text = formatFileSize(context, item.info.length)
+                if (shouldShowDocumentName(item)) {
+                    view.fileName.apply {
+                        visibility = View.VISIBLE
+                        text = item.info.name
+                    }
+                } else {
+                    view.fileName.visibility = View.GONE
+                }
+            }
+        }
+
+        fun shouldShowDocumentName(item: DirectoryEntry): Boolean {
+            return item.type != CustomType.IMAGE
+        }
+
+        override fun onClick(v: View?) {
+            val item = this.item ?: throw NullPointerException()
+
+            when (item.type) {
+                CustomType.FOLDER -> Toast.makeText(context!!, "TODO: Open folder", Toast.LENGTH_LONG).show()// TODO
+                CustomType.IMAGE -> showImage(item)
+                CustomType.UNKNOWN -> Toast.makeText(context!!, "TODO: Open external", Toast.LENGTH_LONG).show()// TODO Intent.ACTION_VIEW
+            }
+        }
+
+        override fun onCreateContextMenu(
+            menu: ContextMenu,
+            v: View,
+            menuInfo: ContextMenu.ContextMenuInfo?
+        ) {
+            val pos = adapterPosition
+
+            menu.add(pos, ENTRY_MENU_DETAILS, Menu.NONE, "Details")
+            menu.add(pos, ENTRY_MENU_RENAME, Menu.NONE, "Rename")
+            menu.add(pos, ENTRY_MENU_SHARE, Menu.NONE, "Share")
+            menu.add(pos, ENTRY_MENU_EXPORT, Menu.NONE, "Export")
+            menu.add(pos, ENTRY_MENU_DELETE, Menu.NONE, "Delete")
+        }
+
+        override fun toString(): String {
+            return super.toString() + " '" + view + "'"
         }
     }
 
@@ -617,16 +670,15 @@ class FolderFragment : Fragment() {
             } else {
                 typeTextView.visibility = View.GONE
             }
-            if (thumb != null || resId != null) {
-                if (thumb != null) {
-                    imageView.setImageBitmap(thumb)
-                } else {
-                    imageView.setImageResource(resId!!)
-                }
-                imageView.visibility = View.VISIBLE
-            } else {
-                imageView.visibility = View.GONE
+
+            var imageVisibility = View.VISIBLE
+            when {
+                thumb != null -> imageView.setImageBitmap(thumb)
+                resId != null -> imageView.setImageResource(resId)
+                else -> imageVisibility = View.GONE
             }
+
+            imageView.visibility = imageVisibility
         }
 
         fun setChecked(checked: Boolean, animated: Boolean) {

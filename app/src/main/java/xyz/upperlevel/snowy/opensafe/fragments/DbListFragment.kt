@@ -41,6 +41,7 @@ class DbListFragment : Fragment() {
 
         // Set the adapter
         with(list) {
+            setHasFixedSize(true)
             layoutManager = LinearLayoutManager(context)
             adapter = MyItemRecyclerViewAdapter()
         }
